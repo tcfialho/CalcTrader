@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marubozu Stop Gain e Stop Loss</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            background-color: #000;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Marubozu Stop Gain e Stop Loss</h1>
+        <form id="formulario-calculadora">
+            <label for="maxima">Máxima do Marubozu:</label>
+            <input type="number" id="maxima" step="0.01" required>
+
+            <label for="minima">Mínima do Marubozu:</label>
+            <input type="number" id="minima" step="0.01" required>
+
+            <label for="precoAtual">Preço Atual do Ativo:</label>
+            <input type="number" id="precoAtual" step="0.01" required>
+
+            <button type="submit">Calcular</button>
+        </form>
+
+        <div id="resultados" class="result"></div>
+
+        <canvas id="grafico" width="500" height="500"></canvas>
+    </div>
+
+    <script>
+        document.getElementById('formulario-calculadora').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // Obtendo valores do formulário
+            const minima = parseFloat(document.getElementById('minima').value);
+            const maxima = parseFloat(document.getElementById('maxima').value);
+            const precoAtual = parseFloat(document.getElementById('precoAtual').value);
+
+            // Calcular níveis de Fibonacci
+            const niveisFibonacci = calcularNiveisFibonacci(minima, maxima);
+            const stopLoss = niveisFibonacci[38.2];
+
+            // Calcular stop gain
+            const stopGain = maxima + (maxima - minima);
+
+            // Calcular risco e retorno
+            const riscoRetorno = calcularRiscoRetorno(precoAtual, stopLoss, stopGain);
+
+            // Exibir resultados
+            exibirResultados(stopLoss, stopGain, riscoRetorno.relacaoRiscoRetorno);
+
+            // Desenhar o gráfico
+            desenharGrafico(minima, maxima, precoAtual, stopLoss, stopGain);
+        });
+
+        function calcularNiveisFibonacci(minima, maxima) {
+            const diferenca = maxima - minima;
+            return {
+                23.6: maxima - diferenca * 0.236,
+                38.2: maxima - diferenca * 0.382,
+                50: maxima - diferenca * 0.5,
+                61.8: maxima - diferenca * 0.618,
+                100: maxima + diferenca * 1
+            };
+        }
+
+        function calcularRiscoRetorno(precoAtual, stopLoss, stopGain) {
+            const risco = precoAtual - stopLoss;
+            const retorno = stopGain - precoAtual;
+            const relacaoRiscoRetorno = retorno / risco;
+            return { risco, retorno, relacaoRiscoRetorno };
+        }
+
+        function exibirResultados(stopLoss, stopGain, relacaoRiscoRetorno) {
+            const resultadosDiv = document.getElementById('resultados');
+            resultadosDiv.innerHTML = `
+                <p>Stop Loss (Fibonacci 38,2%): ${stopLoss.toFixed(2)}</p>
+                <p>Stop Gain (100% de extensão): ${stopGain.toFixed(2)}</p>
+                <p>Relação Risco/Retorno: ${relacaoRiscoRetorno.toFixed(2)}</p>
+            `;
+        }
+
+        function desenharGrafico(minima, maxima, precoAtual, stopLoss, stopGain) {
+            const canvas = document.getElementById('grafico');
+            const ctx = canvas.getContext('2d');
+
+            // Limpar o canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Configurar coordenadas
+            const alturaGrafico = canvas.height - 40;
+            const larguraGrafico = canvas.width - 40;
+            const deslocamentoX = 20;
+            const deslocamentoY = 20;
+
+            // Calcular a escala
+            const valorMinimo = Math.min(minima, stopLoss, stopGain, precoAtual);
+            const valorMaximo = Math.max(maxima, stopLoss, stopGain, precoAtual);
+            const intervaloValores = valorMaximo - valorMinimo;
+            const escalaY = alturaGrafico / intervaloValores;
+
+            // Função para converter valor em coordenada Y
+            function getY(valor) {
+                return canvas.height - deslocamentoY - ((valor - valorMinimo) * escalaY);
+            }
+
+            // Desenhar o fundo preto
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Desenhar o marubozu (candle)
+            ctx.fillStyle = 'green';
+            ctx.fillRect(deslocamentoX + larguraGrafico / 2 - 10, getY(maxima), 20, getY(minima) - getY(maxima));
+
+            // Desenhar linhas de topo e fundo do marubozu
+            ctx.strokeStyle = 'green';
+            ctx.beginPath();
+            ctx.moveTo(deslocamentoX, getY(maxima));
+            ctx.lineTo(canvas.width - deslocamentoX, getY(maxima));
+            ctx.moveTo(deslocamentoX, getY(minima));
+            ctx.lineTo(canvas.width - deslocamentoX, getY(minima));
+            ctx.stroke();
+
+            // Desenhar linha de stop loss
+            ctx.strokeStyle = 'red';
+            ctx.beginPath();
+            ctx.moveTo(deslocamentoX, getY(stopLoss));
+            ctx.lineTo(canvas.width - deslocamentoX, getY(stopLoss));
+            ctx.stroke();
+
+            // Desenhar linha de stop gain
+            ctx.strokeStyle = 'blue';
+            ctx.beginPath();
+            ctx.moveTo(deslocamentoX, getY(stopGain));
+            ctx.lineTo(canvas.width - deslocamentoX, getY(stopGain));
+            ctx.stroke();
+
+            // Desenhar linha de preço atual
+            ctx.strokeStyle = 'yellow';
+            ctx.beginPath();
+            ctx.moveTo(deslocamentoX, getY(precoAtual));
+            ctx.lineTo(canvas.width - deslocamentoX, getY(precoAtual));
+            ctx.stroke();
+
+            // Desenhar os valores das linhas
+            ctx.fillStyle = 'white';
+            ctx.fillText(minima.toFixed(2), canvas.width - deslocamentoX - 45, getY(minima) - 5);
+            ctx.fillText(maxima.toFixed(2), canvas.width - deslocamentoX - 45, getY(maxima) - 5);
+            ctx.fillStyle = 'red';
+            ctx.fillText(stopLoss.toFixed(2), canvas.width - deslocamentoX - 45, getY(stopLoss) - 5);
+            ctx.fillStyle = 'blue';
+            ctx.fillText(stopGain.toFixed(2), canvas.width - deslocamentoX - 45, getY(stopGain) - 5);
+            ctx.fillStyle = 'yellow';
+            ctx.fillText(precoAtual.toFixed(2), canvas.width - deslocamentoX - 45, getY(precoAtual) - 5);
+        }
+    </script>
+</body>
+</html>
